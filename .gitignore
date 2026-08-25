@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# FCC bulk downloads and the database built from them
+data/raw/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# environment
+.env*
+
+# build artifacts
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# logs
+logs/
+*.log
+
+# os
+.DS_Store

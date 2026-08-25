@@ -1,0 +1,14 @@
+[Unit]
+Description=VANTAGE — run whatever data update is due
+
+[Timer]
+# Fires often and does almost nothing most of the time. What actually runs is
+# decided by scripts/update.ts against the schedule stored in the database, so
+# the cadence is editable from the site without root, a unit edit or a reload.
+# A firing with nothing due costs one SQLite read.
+OnCalendar=*:0/15
+Persistent=true
+RandomizedDelaySec=90
+
+[Install]
+WantedBy=timers.target

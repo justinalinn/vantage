@@ -1,0 +1,26 @@
+[Unit]
+Description=VANTAGE — vanity callsign analytics
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/home/%i/vantage
+Environment=NODE_ENV=production
+Environment=PORT=3477
+Environment=HOSTNAME=0.0.0.0
+ExecStart=/usr/bin/env npm run start
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/home/%i/vantage/vantage.log
+StandardError=append:/home/%i/vantage/vantage.log
+
+# The refresh writes to the same database this reads, so the app must not be
+# sandboxed away from data/. Everything else stays locked down.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

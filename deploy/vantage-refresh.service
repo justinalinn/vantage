@@ -1,0 +1,19 @@
+[Unit]
+Description=VANTAGE — apply whatever data update is due
+After=network-online.target vantage.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=%i
+WorkingDirectory=/home/%i/vantage
+Environment=NODE_ENV=production
+# Exits within seconds when nothing is new: six HEAD requests and no download.
+ExecStart=/usr/bin/env npx tsx scripts/update.ts
+StandardOutput=append:/home/%i/vantage/logs/update.log
+StandardError=append:/home/%i/vantage/logs/update.log
+
+# A refresh must never be able to take the site down with it. It writes inside
+# one transaction, so a kill rolls back and the app keeps serving the previous
+# snapshot; this bound just stops a hung download running until the next timer.
+TimeoutStartSec=45min

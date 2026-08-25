@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+  ::selection { background: rgba(76,141,255,0.3); }
+  .van-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+  .van-scroll::-webkit-scrollbar-thumb { background: #333b47; border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+  .van-scroll::-webkit-scrollbar-track { background: transparent; }
+  @keyframes vanShimmer { 0% { background-position: -600px 0; } 100% { background-position: 600px 0; } }
+  @keyframes vanPulse { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
+  @keyframes vanIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+</style>
+</helmet>
+<div class="van-scroll" style="{{ rootStyle }}">
+
+  <!-- ============ TOP BAR ============ -->
+  <header style="display:flex; align-items:center; gap:20px; height:52px; padding:0 16px; background:var(--bg3); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:40;">
+    <div style="display:flex; align-items:baseline; gap:10px;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:16px; letter-spacing:3px; color:var(--fg);">VANTAGE</span>
+      <span style="font-size:10px; letter-spacing:1.5px; color:var(--fg3); text-transform:uppercase;">Vanity Callsign Analytics</span>
+    </div>
+    <nav style="display:flex; align-items:stretch; gap:2px; height:100%; margin-left:8px;">
+      <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="7">
+        <button onClick="{{ tab.onClick }}" disabled="{{ tab.disabled }}" style="{{ tab.style }}">{{ tab.label }}</button>
+      </sc-for>
+    </nav>
+    <div style="flex:1;"></div>
+    <div style="display:flex; align-items:center; gap:6px; flex-shrink:0; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--fg3);">
+      <span style="width:7px; height:7px; border-radius:50%; background:var(--s-avail); box-shadow:0 0 0 3px color-mix(in srgb, var(--s-avail) 20%, transparent);"></span>
+      <span>FCC ULS synced {{ freshness }}</span>
+    </div>
+    <div style="display:flex; flex-shrink:0; border:1px solid var(--line2); border-radius:6px; overflow:hidden;">
+      <button onClick="{{ setDense }}" style="{{ denseBtnStyle }}">Dense</button>
+      <button onClick="{{ setComfy }}" style="{{ comfyBtnStyle }}">Comfort</button>
+    </div>
+    <button onClick="{{ toggleTheme }}" title="Toggle theme" style="width:34px; height:30px; border:1px solid var(--line2); border-radius:6px; background:var(--bg2); color:var(--fg2); cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center;">{{ themeGlyph }}</button>
+  </header>
+
+  <!-- ============ GRID SCREEN ============ -->
+  <sc-if value="{{ isGrid }}" hint-placeholder-val="{{ true }}">
+  <main style="animation:vanIn 160ms ease;">
+    <!-- query + filters -->
+    <div style="display:flex; align-items:center; gap:12px; padding:12px 16px; background:var(--bg2); border-bottom:1px solid var(--line);">
+      <div style="display:flex; align-items:center; gap:8px; flex:1; max-width:640px; height:36px; background:var(--bg); border:1px solid var(--line2); border-radius:8px; padding:0 12px;">
+        <span style="color:var(--fg3); font-family:'IBM Plex Mono',monospace; font-size:13px;">&gt;</span>
+        <input value="{{ query }}" onInput="{{ onQuery }}" placeholder="2x1 region 6 ending in vowel  ·  prefix K  ·  available now" style="flex:1; background:transparent; border:none; outline:none; color:var(--fg); font-family:'IBM Plex Mono',monospace; font-size:13px; letter-spacing:0.3px;"/>
+        <kbd style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--fg3); border:1px solid var(--line2); border-radius:4px; padding:2px 5px;">/</kbd>
+      </div>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <sc-for list="{{ savedSearches }}" as="s" hint-placeholder-count="3">
+          <button onClick="{{ s.onClick }}" style="font-size:11px; font-family:'IBM Plex Mono',monospace; color:var(--fg2); background:var(--bg3); border:1px solid var(--line2); border-radius:20px; padding:4px 11px; cursor:pointer; white-space:nowrap;">{{ s.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+    <!-- shape-of-results bar -->
+    <div style="display:flex; align-items:center; gap:2px; padding:8px 16px; background:var(--bg); border-bottom:1px solid var(--line); overflow-x:auto;" class="van-scroll">
+      <span style="font-size:11px; color:var(--fg3); margin-right:10px; white-space:nowrap;">{{ resultCount }} results</span>
+      <div style="display:flex; height:8px; flex:1; min-width:200px; border-radius:3px; overflow:hidden; border:1px solid var(--line);">
+        <sc-for list="{{ shapeBar }}" as="seg" hint-placeholder-count="6">
+          <div title="{{ seg.title }}" style="{{ seg.style }}"></div>
+        </sc-for>
+      </div>
+      <div style="display:flex; gap:12px; margin-left:14px;">
+        <sc-for list="{{ shapeLegend }}" as="lg" hint-placeholder-count="5">
+          <span style="display:flex; align-items:center; gap:5px; font-size:11px; color:var(--fg2); white-space:nowrap;"><span style="width:8px; height:8px; border-radius:2px; background:{{ lg.color }};"></span>{{ lg.label }} {{ lg.count }}</span>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- table -->
+    <div class="van-scroll" style="overflow:auto; max-height:calc(100vh - 216px);">
+      <table style="width:100%; border-collapse:collapse; font-size:{{ tableFont }};">
+        <thead style="position:sticky; top:0; z-index:10;">
+          <tr style="background:var(--bg3);">
+            <th style="width:34px; padding:{{ cellPad }}; border-bottom:1px solid var(--line2);"></th>
+            <sc-for list="{{ columns }}" as="col" hint-placeholder-count="10">
+              <th onClick="{{ col.onSort }}" style="{{ col.style }}"><span style="display:inline-flex; align-items:center; gap:4px;">{{ col.label }}<span style="color:var(--accent); font-size:9px;">{{ col.arrow }}</span></span></th>
+            </sc-for>
+            <th style="width:30px; border-bottom:1px solid var(--line2);"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- skeleton -->
+          <sc-if value="{{ loading }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ skeleton }}" as="sk" hint-placeholder-count="14">
+              <tr style="border-bottom:1px solid var(--line);">
+                <td colspan="13" style="padding:{{ cellPad }};"><div style="height:14px; border-radius:3px; background:linear-gradient(90deg, var(--bg2) 25%, var(--bg3) 37%, var(--bg2) 63%); background-size:600px 100%; animation:vanShimmer 1.3s infinite; width:{{ sk.w }};"></div></td>
+              </tr>
+            </sc-for>
+          </sc-if>
+          <!-- data rows -->
+          <sc-if value="{{ notLoading }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="0">
+              <tr onClick="{{ r.onExpand }}" style="{{ r.rowStyle }}">
+                <td style="padding:{{ cellPad }}; text-align:center;"><input type="checkbox" checked="{{ r.selected }}" onClick="{{ r.onToggle }}" onChange="{{ r.noop }}" style="accent-color:var(--accent); cursor:pointer; width:14px; height:14px;"/></td>
+                <td style="padding:{{ cellPad }};"><span style="{{ r.chipStyle }}"><span style="font-size:11px; line-height:1;">{{ r.st.glyph }}</span><span style="font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:0.5px;">{{ r.st.code }}</span></span></td>
+                <td style="padding:{{ cellPad }};"><span onClick="{{ r.onOpen }}" style="font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:{{ callFont }}; letter-spacing:1.5px; color:var(--fg); cursor:pointer; border-bottom:1px dotted var(--line2);">{{ r.call }}</span></td>
+                <td style="padding:{{ cellPad }}; font-family:'IBM Plex Mono',monospace; color:var(--fg2); font-size:11px;">{{ r.fmt }}</td>
+                <td style="padding:{{ cellPad }}; color:var(--fg2);">{{ r.rgnLabel }}</td>
+                <td style="padding:{{ cellPad }}; font-family:'IBM Plex Mono',monospace; color:var(--fg2); font-size:11px;">{{ r.cls }}</td>
+                <td style="padding:{{ cellPad }}; color:var(--fg2); font-variant-numeric:tabular-nums;">{{ r.availLabel }}</td>
+                <td style="padding:{{ cellPad }}; text-align:right; font-family:'IBM Plex Mono',monospace; color:var(--fg2); font-variant-numeric:tabular-nums;">{{ r.compLabel }}</td>
+                <td style="padding:{{ cellPad }}; text-align:right; font-family:'IBM Plex Mono',monospace; color:var(--fg2); font-variant-numeric:tabular-nums;">{{ r.morse }}</td>
+                <td style="padding:{{ cellPad }}; text-align:right; font-family:'IBM Plex Mono',monospace; color:var(--fg2); font-variant-numeric:tabular-nums;">{{ r.des }}</td>
+                <td style="padding:{{ cellPad }}; min-width:150px;">
+                  <sc-if value="{{ r.hasProb }}" hint-placeholder-val="{{ true }}">
+                    <div style="position:relative; height:18px; background:var(--bg3); border-radius:3px; overflow:hidden; border:1px solid var(--line);">
+                      <div style="position:absolute; inset:0 auto 0 0; width:{{ r.pPct }}%; background:{{ r.meterBg }};"></div>
+                      <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:space-between; padding:0 6px; font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; color:var(--fg); mix-blend-mode:normal;"><span>{{ r.pLabel }}</span><span style="font-size:8px; letter-spacing:0.5px; color:var(--fg2);">{{ r.exactTag }}</span></div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ r.noProb }}" hint-placeholder-val="{{ true }}">
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--fg3);">{{ r.noProbLabel }}</span>
+                  </sc-if>
+                </td>
+                <td style="padding:{{ cellPad }}; text-align:center; color:var(--fg3); font-size:11px;">{{ r.caret }}</td>
+              </tr>
+              <!-- expand row -->
+              <sc-if value="{{ r.expanded }}" hint-placeholder-val="{{ false }}">
+                <tr>
+                  <td colspan="13" style="padding:0; background:var(--bg);">
+                    <div style="display:grid; grid-template-columns:auto 1fr auto; gap:28px; padding:16px 20px 18px 60px; border-bottom:2px solid var(--accent); animation:vanIn 140ms ease;">
+                      <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+                        <div style="position:relative; width:96px; height:96px; border-radius:50%; background:{{ r.radialBg }}; display:flex; align-items:center; justify-content:center;">
+                          <div style="width:70px; height:70px; border-radius:50%; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center;"><span style="font-family:'IBM Plex Mono',monospace; font-size:20px; font-weight:600; color:var(--fg);">{{ r.pLabel }}</span><span style="font-size:8px; letter-spacing:0.5px; color:var(--fg3);">P(WIN)</span></div>
+                        </div>
+                        <span style="{{ r.exactBadgeStyle }}">{{ r.exactTag }}</span>
+                      </div>
+                      <div style="display:flex; flex-direction:column; gap:12px; justify-content:center;">
+                        <div>
+                          <div style="font-size:10px; letter-spacing:1px; color:var(--fg3); text-transform:uppercase; margin-bottom:7px;">95% confidence interval</div>
+                          <div style="position:relative; height:26px;">
+                            <div style="position:absolute; top:11px; left:0; right:0; height:2px; background:var(--line2);"></div>
+                            <div style="position:absolute; top:8px; height:8px; border-radius:4px; left:{{ r.ciLeft }}%; width:{{ r.ciWidth }}%; background:color-mix(in srgb, {{ r.pColor }} 40%, transparent);"></div>
+                            <div style="position:absolute; top:3px; width:2px; height:18px; background:{{ r.pColor }}; left:{{ r.pPct }}%;"></div>
+                            <span style="position:absolute; top:-2px; font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--fg3); left:{{ r.ciLeft }}%;">{{ r.ciLoLabel }}</span>
+                            <span style="position:absolute; top:-2px; font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--fg3); right:0;">{{ r.ciHiLabel }}</span>
+                          </div>
+                        </div>
+                        <div style="display:flex; gap:24px; font-size:12px;">
+                          <span style="color:var(--fg2);">Competitors <b style="font-family:'IBM Plex Mono',monospace; color:var(--fg);">{{ r.compLabel }}</b></span>
+                          <span style="color:var(--fg2);">Batch <b style="font-family:'IBM Plex Mono',monospace; color:var(--fg);">{{ r.availLabel }}</b></span>
+                          <span style="color:var(--fg2);">Method <b style="font-family:'IBM Plex Mono',monospace; color:var(--fg);">{{ r.methodLabel }}</b></span>
+                        </div>
+                        <div style="font-size:12px; color:var(--fg2); line-height:1.5; max-width:560px;">{{ r.why }}</div>
+                      </div>
+                      <div style="display:flex; flex-direction:column; gap:8px; justify-content:center;">
+                        <button onClick="{{ r.onOpen }}" style="font-size:12px; padding:8px 14px; border:1px solid var(--line2); border-radius:6px; background:var(--bg2); color:var(--fg); cursor:pointer; white-space:nowrap;">Open full detail →</button>
+                        <button onClick="{{ r.onPush }}" style="{{ r.pushStyle }}">{{ r.pushLabel }}</button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </sc-if>
+            </sc-for>
+          </sc-if>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- selection action bar -->
+    <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+      <div style="position:sticky; bottom:0; z-index:20; display:flex; align-items:center; gap:16px; padding:10px 16px; background:var(--bg3); border-top:1px solid var(--accent); animation:vanIn 140ms ease;">
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--fg);">{{ selCount }} selected</span>
+        <span style="font-size:11px; color:var(--fg3);">{{ selPreview }}</span>
+        <div style="flex:1;"></div>
+        <button onClick="{{ onClearSel }}" style="font-size:12px; padding:7px 14px; border:1px solid var(--line2); border-radius:6px; background:transparent; color:var(--fg2); cursor:pointer;">Clear</button>
+        <button onClick="{{ onAddSel }}" style="font-size:12px; font-weight:600; padding:7px 16px; border:none; border-radius:6px; background:var(--accent); color:#fff; cursor:pointer;">Add {{ selCount }} to preference list →</button>
+      </div>
+    </sc-if>
+  </main>
+  </sc-if>
+
+  <!-- ============ DETAIL SCREEN ============ -->
+  <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+  <main style="padding:20px 24px; max-width:1240px; margin:0 auto; animation:vanIn 160ms ease;">
+    <button onClick="{{ backToGrid }}" style="font-size:12px; color:var(--fg2); background:transparent; border:none; cursor:pointer; margin-bottom:14px; font-family:'IBM Plex Mono',monospace;">← results grid</button>
+    <!-- header -->
+    <div style="display:flex; align-items:flex-start; gap:24px; padding:20px 24px; background:var(--bg2); border:1px solid var(--line); border-radius:10px; margin-bottom:16px;">
+      <div>
+        <div style="display:flex; align-items:center; gap:14px;">
+          <span style="font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:40px; letter-spacing:4px; color:var(--fg);">{{ d.call }}</span>
+          <span style="{{ d.chipStyle }}"><span style="font-size:13px;">{{ d.st.glyph }}</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; letter-spacing:0.5px;">{{ d.st.code }}</span>{{ d.st.label }}</span>
+        </div>
+        <div style="display:flex; gap:22px; margin-top:12px; font-size:12px; color:var(--fg2);">
+          <span>Format <b style="font-family:'IBM Plex Mono',monospace; color:var(--fg);">{{ d.fmt }}</b></span>
+          <span>Region <b style="color:var(--fg);">{{ d.rgnLabel }}</b></span>
+          <span>Class req. <b style="font-family:'IBM Plex Mono',monospace; color:var(--fg);">{{ d.cls }}</b></span>
+          <span>Morse weight <b style="font-family:'IBM Plex Mono',monospace; color:var(--fg);">{{ d.morse }}</b></span>
+          <span>Desirability <b style="font-family:'IBM Plex Mono',monospace; color:var(--fg);">{{ d.des }}/100</b></span>
+        </div>
+      </div>
+      <div style="flex:1;"></div>
+      <sc-if value="{{ d.hasProb }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; align-items:center; gap:18px;">
+          <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+            <span style="{{ d.exactBadgeStyle }}">{{ d.exactTag }}</span>
+            <div style="position:relative; width:180px; height:34px;">
+              <div style="position:absolute; top:15px; left:0; right:0; height:2px; background:var(--line2);"></div>
+              <div style="position:absolute; top:12px; height:8px; border-radius:4px; left:{{ d.ciLeft }}%; width:{{ d.ciWidth }}%; background:color-mix(in srgb, {{ d.pColor }} 40%, transparent);"></div>
+              <div style="position:absolute; top:7px; width:2px; height:18px; background:{{ d.pColor }}; left:{{ d.pPct }}%;"></div>
+              <span style="position:absolute; bottom:-2px; left:{{ d.ciLeft }}%; font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--fg3);">{{ d.ciLoLabel }}</span>
+              <span style="position:absolute; bottom:-2px; right:0; font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--fg3);">{{ d.ciHiLabel }}</span>
+            </div>
+            <span style="font-size:10px; color:var(--fg3);">95% CI · {{ d.compLabel }} competitors</span>
+          </div>
+          <div style="position:relative; width:104px; height:104px; border-radius:50%; background:{{ d.radialBg }}; display:flex; align-items:center; justify-content:center;">
+            <div style="width:78px; height:78px; border-radius:50%; background:var(--bg2); display:flex; flex-direction:column; align-items:center; justify-content:center;"><span style="font-family:'IBM Plex Mono',monospace; font-size:24px; font-weight:600; color:var(--fg);">{{ d.pLabel }}</span><span style="font-size:8px; letter-spacing:1px; color:var(--fg3);">P(WIN)</span></div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1.15fr 1fr; gap:16px; align-items:start;">
+      <!-- why + competitors -->
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="background:var(--bg2); border:1px solid var(--line); border-left:3px solid {{ d.st.color }}; border-radius:10px; padding:16px 18px;">
+          <div style="font-size:10px; letter-spacing:1.2px; color:var(--fg3); text-transform:uppercase; margin-bottom:8px;">Why this status — rule trace</div>
+          <div style="font-size:13px; color:var(--fg); line-height:1.55; margin-bottom:12px;">{{ d.why }}</div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <sc-for list="{{ d.rules }}" as="rule" hint-placeholder-count="3">
+              <div style="display:flex; gap:8px; align-items:baseline; font-size:12px;"><span style="font-family:'IBM Plex Mono',monospace; color:var(--accent); font-size:10px;">{{ rule.tag }}</span><span style="color:var(--fg2); line-height:1.45;">{{ rule.text }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background:var(--bg2); border:1px solid var(--line); border-radius:10px; overflow:hidden;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--line);">
+            <span style="font-size:13px; font-weight:600; color:var(--fg);">Competing applications</span>
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--fg3);">{{ d.compLabel }} filed · same receipt date</span>
+          </div>
+          <div class="van-scroll" style="max-height:320px; overflow:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+              <thead style="position:sticky; top:0;"><tr style="background:var(--bg3);">
+                <th style="text-align:left; padding:7px 12px; color:var(--fg3); font-weight:500; border-bottom:1px solid var(--line2);">File #</th>
+                <th style="text-align:left; padding:7px 12px; color:var(--fg3); font-weight:500; border-bottom:1px solid var(--line2);">Applicant</th>
+                <th style="text-align:left; padding:7px 12px; color:var(--fg3); font-weight:500; border-bottom:1px solid var(--line2);">St</th>
+                <th style="text-align:left; padding:7px 12px; color:var(--fg3); font-weight:500; border-bottom:1px solid var(--line2);">Receipt</th>
+                <th style="text-align:right; padding:7px 12px; color:var(--fg3); font-weight:500; border-bottom:1px solid var(--line2);">Their P</th>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ d.competitors }}" as="c" hint-placeholder-count="7">
+                  <tr style="{{ c.style }}">
+                    <td style="padding:6px 12px; font-family:'IBM Plex Mono',monospace; color:var(--fg3);">{{ c.file }}</td>
+                    <td style="padding:6px 12px; font-family:'IBM Plex Mono',monospace; color:var(--fg); letter-spacing:0.5px;">{{ c.call }}</td>
+                    <td style="padding:6px 12px; color:var(--fg2);">{{ c.state }}</td>
+                    <td style="padding:6px 12px; font-family:'IBM Plex Mono',monospace; color:var(--fg2); font-variant-numeric:tabular-nums;">{{ c.receipt }}</td>
+                    <td style="padding:6px 12px; text-align:right; font-family:'IBM Plex Mono',monospace; color:{{ c.pColor }}; font-variant-numeric:tabular-nums;">{{ c.p }}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- history timeline -->
+      <div style="background:var(--bg2); border:1px solid var(--line); border-radius:10px; padding:16px 18px;">
+        <div style="font-size:10px; letter-spacing:1.2px; color:var(--fg3); text-transform:uppercase; margin-bottom:16px;">License history</div>
+        <div style="position:relative; padding-left:22px;">
+          <div style="position:absolute; left:5px; top:4px; bottom:4px; width:2px; background:var(--line2);"></div>
+          <sc-for list="{{ d.history }}" as="h" hint-placeholder-count="4">
+            <div style="position:relative; padding-bottom:20px;">
+              <div style="position:absolute; left:-21px; top:2px; width:12px; height:12px; border-radius:50%; background:{{ h.dot }}; border:2px solid var(--bg2); box-shadow:0 0 0 1px var(--line2);"></div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--fg3); font-variant-numeric:tabular-nums;">{{ h.date }}</div>
+              <div style="font-size:13px; color:var(--fg); font-weight:500; margin-top:1px;">{{ h.title }}</div>
+              <div style="font-size:12px; color:var(--fg2); margin-top:2px; line-height:1.45;">{{ h.detail }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </main>
+  </sc-if>
+
+  <!-- ============ BUILDER SCREEN ============ -->
+  <sc-if value="{{ isBuilder }}" hint-placeholder-val="{{ false }}">
+  <main style="display:grid; grid-template-columns:1fr 300px; gap:0; height:calc(100vh - 52px); animation:vanIn 160ms ease;">
+    <!-- slots column -->
+    <div class="van-scroll" style="overflow:auto; border-right:1px solid var(--line);">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 20px; position:sticky; top:0; background:var(--bg2); border-bottom:1px solid var(--line); z-index:5;">
+        <div>
+          <div style="font-size:14px; font-weight:600; color:var(--fg);">Preference list</div>
+          <div style="font-size:11px; color:var(--fg3); margin-top:2px;">Drag to reorder — P(win) recomputes live · {{ slotCount }}/25 slots · $35 filing fee</div>
+        </div>
+        <button onClick="{{ onOptimize }}" style="font-size:12px; font-weight:600; padding:8px 15px; border:1px solid var(--accent); border-radius:7px; background:color-mix(in srgb, var(--accent) 14%, transparent); color:var(--accent); cursor:pointer;">◆ Optimize for me</button>
+      </div>
+
+      <!-- optimizer diff -->
+      <sc-if value="{{ showDiff }}" hint-placeholder-val="{{ false }}">
+        <div style="margin:12px 20px; padding:12px 16px; background:color-mix(in srgb, var(--accent) 8%, transparent); border:1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius:8px; animation:vanIn 160ms ease;">
+          <div style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:600; color:var(--accent); margin-bottom:8px;">◆ Optimizer reordered by desirability-weighted expected value</div>
+          <div style="display:flex; gap:26px; font-size:12px;">
+            <span style="color:var(--fg2);">Expected value <b style="font-family:'IBM Plex Mono',monospace; color:var(--fg3);">{{ diff.evBefore }}</b> <span style="color:var(--accent);">→ {{ diff.evAfter }}</span> <span style="{{ diff.evStyle }}">{{ diff.evDelta }}</span></span>
+            <span style="color:var(--fg2);">P(top-3) <b style="font-family:'IBM Plex Mono',monospace; color:var(--fg3);">{{ diff.t3Before }}</b> <span style="color:var(--accent);">→ {{ diff.t3After }}</span> <span style="{{ diff.t3Style }}">{{ diff.t3Delta }}</span></span>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="padding:8px 20px 20px;">
+        <sc-for list="{{ slots }}" as="slot" hint-placeholder-count="8">
+          <div ref="{{ slot.setRef }}" draggable="true" onDragStart="{{ slot.onDragStart }}" onDragOver="{{ slot.onDragOver }}" onDragEnd="{{ slot.onDragEnd }}" onDrop="{{ slot.onDragEnd }}" style="{{ slot.style }}">
+            <span style="width:20px; text-align:center; color:var(--fg3); cursor:grab; font-size:14px; line-height:1;">⠿</span>
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--fg3); width:22px; text-align:right;">{{ slot.rank }}</span>
+            <span style="{{ slot.chipStyle }}"><span style="font-size:10px;">{{ slot.st.glyph }}</span>{{ slot.st.code }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:15px; letter-spacing:2px; color:var(--fg); width:78px;">{{ slot.call }}</span>
+            <div style="flex:1; display:flex; align-items:center; gap:10px;">
+              <div style="flex:1; max-width:150px; height:6px; background:var(--bg3); border-radius:3px; overflow:hidden;"><div style="height:100%; width:{{ slot.pPct }}%; background:{{ slot.pColor }};"></div></div>
+              <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--fg); width:52px; text-align:right;">{{ slot.pLabel }}</span>
+            </div>
+            <span title="desirability" style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--fg2); width:44px; text-align:right;">v{{ slot.des }}</span>
+            <span title="marginal probability you win here" style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--s-avail); width:56px; text-align:right;">{{ slot.marginal }}</span>
+            <button onClick="{{ slot.onRemove }}" style="width:22px; height:22px; border:1px solid var(--line2); border-radius:5px; background:transparent; color:var(--fg3); cursor:pointer; font-size:12px; line-height:1;">×</button>
+          </div>
+        </sc-for>
+
+        <!-- add from pool -->
+        <div style="margin-top:16px; padding-top:14px; border-top:1px dashed var(--line2);">
+          <div style="font-size:10px; letter-spacing:1px; color:var(--fg3); text-transform:uppercase; margin-bottom:10px;">Candidate pool — click to add</div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <sc-for list="{{ pool }}" as="p" hint-placeholder-count="6">
+              <button onClick="{{ p.onAdd }}" disabled="{{ p.disabled }}" style="{{ p.style }}"><span style="{{ p.chipStyle }}"><span style="font-size:9px;">{{ p.st.glyph }}</span>{{ p.st.code }}</span><span style="font-family:'IBM Plex Mono',monospace; font-weight:600; letter-spacing:1px;">{{ p.call }}</span><span style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--fg3);">v{{ p.des }}</span></button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- summary dashboard -->
+    <aside class="van-scroll" style="overflow:auto; padding:18px 18px 24px; background:var(--bg2);">
+      <div style="font-size:10px; letter-spacing:1.2px; color:var(--fg3); text-transform:uppercase; margin-bottom:14px;">Portfolio outcome</div>
+      <div style="display:flex; flex-direction:column; gap:2px; margin-bottom:18px;">
+        <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="4">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:var(--bg); border:1px solid var(--line); border-radius:8px; margin-bottom:6px;">
+            <div>
+              <div style="font-size:12px; color:var(--fg2);">{{ m.label }}</div>
+              <div style="font-size:10px; color:var(--fg3); margin-top:1px;">{{ m.sub }}</div>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:24px; font-weight:600; color:{{ m.color }}; font-variant-numeric:tabular-nums;">{{ m.value }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="padding:14px; background:var(--bg); border:1px solid var(--line); border-radius:8px;">
+        <div style="font-size:11px; color:var(--fg2); margin-bottom:10px;">Cumulative P(get anything) by slot</div>
+        <div style="display:flex; align-items:flex-end; gap:3px; height:80px;">
+          <sc-for list="{{ cumBars }}" as="b" hint-placeholder-count="8">
+            <div title="{{ b.title }}" style="flex:1; height:{{ b.h }}%; min-height:2px; background:{{ b.color }}; border-radius:2px 2px 0 0;"></div>
+          </sc-for>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--fg3); margin-top:6px;"><span>slot 1</span><span>diminishing returns →</span></div>
+      </div>
+      <div style="margin-top:14px; font-size:11px; color:var(--fg3); line-height:1.5;">{{ builderNote }}</div>
+    </aside>
+  </main>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1360,&quot;height&quot;:860},&quot;defaultScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;grid&quot;,&quot;detail&quot;,&quot;builder&quot;],&quot;default&quot;:&quot;grid&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Startup&quot;},&quot;accentColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:[&quot;#4c8dff&quot;,&quot;#3fb950&quot;,&quot;#a371f7&quot;,&quot;#e3b341&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;probScale&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;traffic&quot;,&quot;mono&quot;,&quot;blue&quot;],&quot;default&quot;:&quot;traffic&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.slotEls = {};
+    this._prevRects = null;
+    this.state = {
+      screen: this.props.defaultScreen || 'grid',
+      theme: 'dark',
+      density: 'dense',
+      loading: true,
+      query: '',
+      sortKey: 'p', sortDir: -1,
+      selected: {},
+      expandedRow: null,
+      detailCall: 'K1AB',
+      pref: ['AA9K','K1AB','N2YT','W4GO','K6ZZ','N5VE','W9DX','K3RR'],
+      dragId: null,
+      diff: null
+    };
+  }
+  componentDidMount(){ this._t = setTimeout(()=> this.setState({loading:false}), 1100); }
+  componentWillUnmount(){ clearTimeout(this._t); }
+
+  // ---- FLIP animation for reorder ----
+  getSnapshotBeforeUpdate(){
+    if(this.state.screen==='builder'){
+      const m={}; for(const id in this.slotEls){ const el=this.slotEls[id]; if(el) m[id]=el.getBoundingClientRect(); }
+      this._prevRects=m;
+    }
+    return null;
+  }
+  componentDidUpdate(){
+    if(!this._prevRects) return;
+    const prev=this._prevRects; this._prevRects=null;
+    for(const id in this.slotEls){
+      const el=this.slotEls[id]; if(!el) continue;
+      const pr=prev[id]; if(!pr) continue;
+      const dy=pr.top-el.getBoundingClientRect().top;
+      if(!dy) continue;
+      el.style.transition='none'; el.style.transform='translateY('+dy+'px)';
+      requestAnimationFrame(()=>{ el.style.transition='transform 240ms cubic-bezier(.2,.85,.25,1)'; el.style.transform=''; });
+    }
+  }
+
+  // ---- static reference data ----
+  get STATUS(){
+    return {
+      NEVER_ISSUED:      {code:'NEV', glyph:'◆', color:'var(--s-never)',     label:'Never issued'},
+      AVAILABLE:         {code:'AVL', glyph:'●', color:'var(--s-avail)',     label:'Available'},
+      AVAILABLE_CONTESTED:{code:'CON',glyph:'◎', color:'var(--s-contested)', label:'Contested'},
+      PENDING:           {code:'PND', glyph:'◐', color:'var(--s-pending)',   label:'In lottery'},
+      UPCOMING:          {code:'UPC', glyph:'◔', color:'var(--s-upcoming)',  label:'Upcoming'},
+      EXPIRED_WAITING:   {code:'EXP', glyph:'▽', color:'var(--s-expired)',   label:'Expired · hold'},
+      CANCELED_WAITING:  {code:'CAN', glyph:'▼', color:'var(--s-canceled)',  label:'Canceled · hold'},
+      ACTIVE:            {code:'ACT', glyph:'■', color:'var(--s-active)',    label:'Licensed'},
+      ANOMALY:           {code:'ANM', glyph:'△', color:'var(--s-anomaly)',   label:'Anomaly'},
+      RESERVED:          {code:'RSV', glyph:'▪', color:'var(--s-locked)',    label:'Reserved', dim:true},
+      REGION_LOCKED:     {code:'RGN', glyph:'▪', color:'var(--s-locked)',    label:'Region-locked', dim:true},
+      CLASS_LOCKED:      {code:'CLS', glyph:'▪', color:'var(--s-locked)',    label:'Class-locked', dim:true}
+    };
+  }
+  get DATA(){
+    if(this._data) return this._data;
+    // call, fmt, rgn, cls, status, p, plo, phi, exact, comp, avail, morse, des
+    const raw = [
+      ['AA9K','2x2',9,'G','NEVER_ISSUED',0.99,0.98,1.00,true,0,'—',16,66],
+      ['K1AB','2x1',1,'E','PENDING',0.668,0.61,0.72,true,7,'Sep 03',8,92],
+      ['N2YT','2x1',2,'E','AVAILABLE_CONTESTED',0.74,0.70,0.78,true,3,'now',11,78],
+      ['W4GO','1x2',4,'A','AVAILABLE',0.90,0.86,0.93,true,0,'now',13,70],
+      ['K6ZZ','2x1',6,'E','PENDING',0.41,0.33,0.49,false,21,'Sep 12',9,88],
+      ['N5VE','2x1',5,'G','AVAILABLE_CONTESTED',0.63,0.57,0.69,true,5,'now',12,74],
+      ['W9DX','2x1',9,'E','PENDING',0.55,0.47,0.62,false,14,'Sep 09',10,81],
+      ['K3RR','2x1',3,'E','NEVER_ISSUED',0.99,0.98,1.00,true,0,'—',6,90],
+      ['K7OM','2x1',7,'A','AVAILABLE',0.88,0.83,0.92,true,1,'now',12,64],
+      ['N8ZR','2x1',8,'E','PENDING',0.29,0.21,0.37,false,33,'Sep 15',11,83],
+      ['W2QX','2x1',2,'E','UPCOMING',null,null,null,true,0,'Oct 22',14,72],
+      ['K4YY','2x1',4,'G','UPCOMING',null,null,null,true,0,'Nov 04',13,68],
+      ['AB1CD','2x2',1,'T','AVAILABLE',0.82,0.76,0.87,true,2,'now',18,44],
+      ['KE6RS','2x2',6,'E','AVAILABLE_CONTESTED',0.58,0.51,0.65,true,6,'now',17,49],
+      ['N0AX','2x1',0,'E','ACTIVE',null,null,null,true,0,'—',9,86],
+      ['W1AW','2x2',1,'E','ACTIVE',null,null,null,true,0,'—',15,99],
+      ['K9OS','2x1',9,'E','ANOMALY',null,null,null,true,0,'paper',9,71],
+      ['N4GG','2x1',4,'E','ANOMALY',null,null,null,true,0,'paper',7,80],
+      ['K5ED','2x1',5,'E','CLASS_LOCKED',null,null,null,true,0,'—',8,77],
+      ['W6TR','2x1',6,'E','CLASS_LOCKED',null,null,null,true,0,'—',10,73],
+      ['KP4X','1x2',11,'E','REGION_LOCKED',null,null,null,true,0,'—',13,60],
+      ['NH6A','2x1',13,'E','REGION_LOCKED',null,null,null,true,0,'—',12,58],
+      ['KL7A','2x1',12,'E','REGION_LOCKED',null,null,null,true,0,'—',11,55],
+      ['AA0AA','2x2',0,'E','RESERVED',null,null,null,true,0,'—',20,30],
+      ['K1MUF','2x3',1,'E','RESERVED',null,null,null,true,0,'—',22,20],
+      ['N3FJP','2x2',3,'E','EXPIRED_WAITING',null,null,null,true,0,'Dec 01',16,52],
+      ['W7RN','2x1',7,'E','EXPIRED_WAITING',null,null,null,true,0,'Jan 14',10,69],
+      ['K2GD','2x1',2,'E','CANCELED_WAITING',null,null,null,true,0,'Feb 03',9,63],
+      ['N9AB','2x1',9,'G','CANCELED_WAITING',null,null,null,true,0,'Mar 20',8,57],
+      ['W8IZ','2x1',8,'E','AVAILABLE',0.86,0.81,0.90,true,1,'now',12,61],
+      ['K0BX','2x1',0,'A','PENDING',0.48,0.40,0.56,false,18,'Sep 07',10,75],
+      ['N6TV','2x1',6,'E','PENDING',0.72,0.66,0.78,true,4,'Sep 03',11,84],
+      ['W5KG','2x1',5,'E','NEVER_ISSUED',0.99,0.98,1.00,true,0,'—',12,67],
+      ['K8ND','2x1',8,'E','AVAILABLE_CONTESTED',0.51,0.44,0.58,true,9,'now',10,76],
+      ['AC4G','2x1',4,'G','UPCOMING',null,null,null,true,0,'Oct 30',9,70],
+      ['N7IR','2x1',7,'E','ACTIVE',null,null,null,true,0,'—',12,65]
+    ];
+    const RG={0:'Gtr Any',1:'1 · NE',2:'2 · NY/NJ',3:'3 · Mid-Atl',4:'4 · SE',5:'5 · S Ctrl',6:'6 · CA',7:'7 · NW',8:'8 · Gt Lakes',9:'9 · Ctrl',11:'PR/VI',12:'AK',13:'HI/Pac'};
+    this._data = raw.map(a=>({
+      call:a[0], fmt:a[1], rgn:a[2], rgnLabel:RG[a[2]]||('R'+a[2]), cls:a[3], status:a[4],
+      p:a[5], plo:a[6], phi:a[7], exact:a[8], comp:a[9], avail:a[10], morse:a[11], des:a[12]
+    }));
+    return this._data;
+  }
+  byCall(c){ return this.DATA.find(d=>d.call===c); }
+
+  // ---- helpers ----
+  pColor(p){ if(p==null) return 'var(--fg3)'; if(p<0.34) return 'var(--p-low)'; if(p<0.67) return 'var(--p-mid)'; return 'var(--p-high)'; }
+  fmtPct(p,sim){ if(p==null) return '—'; return (sim?'~':'')+(p*100).toFixed(p<0.1?1:1)+'%'; }
+  meterBg(r){
+    const c=this.pColor(r.p);
+    const base='color-mix(in srgb, '+c+' 78%, transparent)';
+    if(r.exact) return base;
+    return 'repeating-linear-gradient(45deg, '+base+' 0 5px, color-mix(in srgb, '+c+' 45%, transparent) 5px 10px)';
+  }
+  radialBg(p){ const c=this.pColor(p); const deg=Math.round((p||0)*360); return 'conic-gradient('+c+' '+deg+'deg, var(--bg3) '+deg+'deg)'; }
+  chipStyle(st, size){
+    const pad = size==='sm' ? '2px 6px' : '3px 9px';
+    const op = st.dim ? '0.62' : '1';
+    return 'display:inline-flex; align-items:center; gap:5px; padding:'+pad+'; border-radius:5px; font-size:11px; font-weight:500; opacity:'+op+
+      '; color:'+st.color+'; background:color-mix(in srgb, '+st.color+' 14%, transparent); border:1px solid color-mix(in srgb, '+st.color+' 35%, transparent);';
+  }
+
+  // ---- lottery model ----
+  standaloneP(r){
+    if(r.p!=null) return r.p;
+    if(r.status==='NEVER_ISSUED') return 0.99;
+    if(r.status==='AVAILABLE') return 0.9;
+    return 0.5;
+  }
+  applyable(r){ return ['NEVER_ISSUED','AVAILABLE','AVAILABLE_CONTESTED','PENDING'].includes(r.status); }
+  metricsFor(ids){
+    const cand = ids.map(id=>this.byCall(id)).filter(Boolean);
+    let reach=1; const slots=[];
+    cand.forEach(r=>{ const p=this.standaloneP(r); const pSlot=p*reach; slots.push({r,p,pSlot,reachBefore:reach}); reach*=(1-p); });
+    const pAny=1-reach;
+    const pFirst = cand.length? this.standaloneP(cand[0]) : 0;
+    let t3=1; cand.slice(0,3).forEach(r=> t3*=(1-this.standaloneP(r))); const pTop3=1-t3;
+    const ev = slots.reduce((s,x)=> s + x.r.des*x.pSlot, 0);
+    return {slots,pAny,pFirst,pTop3,ev};
+  }
+
+  // ---- actions ----
+  go(screen){ return ()=> this.setState({screen, expandedRow:null}); }
+  openDetail(call){ return (e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); this.setState({screen:'detail', detailCall:call}); }; }
+  toggleSort(k){ return ()=> this.setState(s=> ({sortKey:k, sortDir: s.sortKey===k? -s.sortDir : (k==='call'||k==='avail'?1:-1)})); }
+  toggleRow(id){ return (e)=>{ e.stopPropagation(); this.setState(s=>{ const sel={...s.selected}; if(sel[id])delete sel[id]; else sel[id]=true; return {selected:sel}; }); }; }
+  expandRow(id){ return ()=> this.setState(s=> ({expandedRow: s.expandedRow===id?null:id})); }
+  pushToPref(id){ return (e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); this.setState(s=>{ if(s.pref.includes(id)||s.pref.length>=25) return {}; return {pref:[...s.pref,id]}; }); }; }
+  removeSlot(id){ return (e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); this.setState(s=>({pref:s.pref.filter(x=>x!==id), diff:null})); }; }
+  addSelected(){
+    this.setState(s=>{
+      const add=Object.keys(s.selected).filter(id=>{ const r=this.byCall(id); return r&&this.applyable(r)&&!s.pref.includes(id); });
+      return {pref:[...s.pref, ...add].slice(0,25), selected:{}, screen:'builder'};
+    });
+  }
+  optimize(){
+    this.setState(s=>{
+      const before=this.metricsFor(s.pref);
+      const sorted=[...s.pref].sort((a,b)=> this.byCall(b).des - this.byCall(a).des);
+      const after=this.metricsFor(sorted);
+      return {pref:sorted, diff:{
+        evBefore:before.ev.toFixed(1), evAfter:after.ev.toFixed(1), evUp: after.ev>=before.ev,
+        t3Before:(before.pTop3*100).toFixed(1)+'%', t3After:(after.pTop3*100).toFixed(1)+'%', t3Up: after.pTop3>=before.pTop3
+      }};
+    });
+  }
+  // drag
+  onDragStart(id){ return ()=> this.setState({dragId:id}); }
+  onDragOver(id){ return (e)=>{ e.preventDefault(); this.setState(s=>{ const d=s.dragId; if(!d||d===id) return {}; const arr=[...s.pref]; const from=arr.indexOf(d), to=arr.indexOf(id); if(from<0||to<0) return {}; arr.splice(to,0,arr.splice(from,1)[0]); return {pref:arr, diff:null}; }); }; }
+  onDragEnd(){ return ()=> this.setState({dragId:null}); }
+
+  // ---- theme tokens ----
+  tokens(theme){
+    if(theme==='light') return {
+      '--bg':'#f4f6f9','--bg2':'#ffffff','--bg3':'#eef1f6','--line':'#e3e8ef','--line2':'#cfd6e0',
+      '--fg':'#1a2029','--fg2':'#576273','--fg3':'#8a95a5','--accent':this.props.accentColor||'#2f6bff',
+      '--s-never':'#b7791f','--s-avail':'#2f9e44','--s-contested':'#0c8599','--s-pending':'#2f6bff',
+      '--s-upcoming':'#7048e8','--s-expired':'#c05621','--s-canceled':'#c92a2a','--s-active':'#868e96',
+      '--s-anomaly':'#c2185b','--s-locked':'#9aa4b2','--p-low':'#c92a2a','--p-mid':'#c05621','--p-high':'#2f9e44'
+    };
+    return {
+      '--bg':'#0a0c10','--bg2':'#0e1116','--bg3':'#151a22','--line':'#1e242d','--line2':'#2b333f',
+      '--fg':'#e7ebf1','--fg2':'#9aa4b2','--fg3':'#68727f','--accent':this.props.accentColor||'#4c8dff',
+      '--s-never':'#e3b341','--s-avail':'#3fb950','--s-contested':'#39c5cf','--s-pending':'#4c8dff',
+      '--s-upcoming':'#a371f7','--s-expired':'#db8b3a','--s-canceled':'#f0785a','--s-active':'#7d8792',
+      '--s-anomaly':'#e05aa8','--s-locked':'#5b636f','--p-low':'#f0785a','--p-mid':'#e3b341','--p-high':'#3fb950'
+    };
+  }
+
+  detailData(){
+    const r=this.byCall(this.state.detailCall); if(!r) return {};
+    const st=this.STATUS[r.status];
+    const sim = r.exact===false;
+    const method = sim ? 'Monte-Carlo (200k)' : 'Exact enumeration';
+    const states=['CA','TX','NY','FL','WA','OH','IL','GA','AZ','NC','MI','CO'];
+    const suff=['RQ','TX','KL','MP','VN','ZW','BC','GH','DL','FR'];
+    const competitors=[];
+    for(let i=0;i<Math.min(r.comp,12);i++){
+      const cp = Math.max(0.02, this.standaloneP(r)*(0.9-i*0.06) + (i%3)*0.01);
+      competitors.push({
+        file:'00'+(41822+i*17),
+        call:(['K','W','N','AA','KE'][i%5])+((i%9)+1)+suff[i%suff.length],
+        state:states[i%states.length],
+        receipt:'Aug '+(12+(i%4)),
+        p:(cp*100).toFixed(1)+'%',
+        pColor:this.pColor(cp),
+        style:'border-bottom:1px solid var(--line);'+(i%2?'background:color-mix(in srgb, var(--bg3) 40%, transparent);':'')
+      });
+    }
+    const WHY={
+      PENDING:'This callsign is in an active FCC lottery batch. '+r.comp+' applications share its receipt date and will be processed in uniformly random order during the overnight batch. Your win probability is your chance of being ordered ahead of every competitor who also ranks it.',
+      NEVER_ISSUED:'This callsign is structurally valid under Part 97 but has never been assigned in the complete ULS history. There is no incumbent and no pending competition — it can be granted immediately with near-certainty. A genuine rarity.',
+      AVAILABLE:'Open now with no pending applications on file. Filing today places you first with no lottery; the only residual risk is a same-day competing filer.',
+      AVAILABLE_CONTESTED:'Open now, but '+r.comp+' applicants are already in the queue. If your receipt date matches theirs it becomes a lottery; file on an earlier workday to avoid sharing the batch.',
+      ANOMALY:'Marked available in ULS, but empirically never granted across every historical release — the signature of an undocumented FCC hold. Applying is likely to waste the $35 fee.',
+      REGION_LOCKED:'Assignment requires a mailing address within this call district. Your licensed address does not qualify, so this call is not available to you.',
+      CLASS_LOCKED:'This format requires a higher operator class than your license currently holds. Upgrade to become eligible.',
+      RESERVED:'Part of a reserved block (e.g. AA0AA-style or federal set-aside). Never assignable through the vanity system.',
+      ACTIVE:'Currently licensed and in good standing. It will not enter the vanity pool until it expires and clears the 2-year hold.',
+      UPCOMING:'Not yet open. Expires/clears on the date shown; we will surface it in your watchlist and estimate competition as the window approaches.',
+      EXPIRED_WAITING:'Expired but inside the mandatory 2-year hold. Becomes assignable on the projected date shown.',
+      CANCELED_WAITING:'Canceled but inside the mandatory 2-year hold. Becomes assignable on the projected date shown.'
+    };
+    const rules=[];
+    if(r.status==='PENDING'||r.status==='AVAILABLE_CONTESTED'){ rules.push({tag:'§1.933',text:'Same-receipt-date applications processed in random order.'}); rules.push({tag:'MODEL',text:method+' over '+r.comp+' competitors → P = '+this.fmtPct(r.p,sim)+'.'}); }
+    if(r.status==='NEVER_ISSUED'){ rules.push({tag:'ULS',text:'Zero grant records found in full assignment history.'}); rules.push({tag:'PART 97',text:'Format valid for class '+r.cls+'; no reserved-block match.'}); }
+    if(st.dim){ rules.push({tag:'ELIG',text:'Eligibility gate failed — hidden from default apply flows.'}); }
+    const history={
+      PENDING:[['2024-06-01','Previous holder expired','W?'+r.rgn+' let license lapse.'],['2024-06-01','2-year hold begins','Callsign locked from reassignment.'],['2026-06-02','Hold cleared','Entered vanity availability pool.'],['2026-08-14','Lottery batch opened',r.comp+' applications received.']],
+      NEVER_ISSUED:[['1998-01-01','ULS goes live','No record for this callsign at migration.'],['2026-08-17','Confirmed never-issued','Full-history scan returns zero grants.']],
+      AVAILABLE:[['2024-03-12','Holder expired','License not renewed.'],['2026-03-13','Hold cleared','Entered pool, no applicants.']],
+      ACTIVE:[['2016-05-09','Granted','Assigned to current holder.'],['2026-05-09','Renewed','10-year term, expires 2036.']]
+    };
+    const HGET=history[r.status]||[['2026-08-17','Snapshot','Current ULS state recorded.']];
+    return {
+      call:r.call, fmt:r.fmt, cls:r.cls, morse:r.morse, des:r.des, rgnLabel:r.rgnLabel,
+      st, chipStyle:this.chipStyle(st)+'gap:6px;',
+      hasProb:r.p!=null,
+      pLabel:this.fmtPct(r.p,sim), pPct:r.p!=null?(r.p*100):0, pColor:this.pColor(r.p),
+      radialBg:this.radialBg(r.p),
+      ciLeft:r.plo!=null?(r.plo*100):0, ciWidth:r.plo!=null?((r.phi-r.plo)*100):0,
+      ciLoLabel:r.plo!=null?(r.plo*100).toFixed(0)+'%':'', ciHiLabel:r.phi!=null?(r.phi*100).toFixed(0)+'%':'',
+      exactTag: sim?'SIMULATED':'EXACT', exactBadgeStyle:this.exactBadge(sim),
+      compLabel:r.comp+'', why:WHY[r.status]||'', rules,
+      competitors,
+      history:HGET.map((h,i)=>({date:h[0], title:h[1], detail:h[2], dot: i===HGET.length-1? st.color : 'var(--fg3)'}))
+    };
+  }
+  exactBadge(sim){
+    const c = sim? 'var(--s-upcoming)' : 'var(--s-avail)';
+    return 'display:inline-flex; align-items:center; gap:4px; font-family:\'IBM Plex Mono\',monospace; font-size:9px; font-weight:600; letter-spacing:1px; padding:2px 7px; border-radius:4px; color:'+c+'; background:color-mix(in srgb, '+c+' 15%, transparent); border:1px solid color-mix(in srgb, '+c+' 40%, transparent);';
+  }
+
+  renderVals(){
+    const s=this.state;
+    const tk=this.tokens(s.theme);
+    const dense = s.density==='dense';
+    const cellPad = dense? '5px 10px' : '11px 12px';
+    const rootStyle = Object.entries(tk).map(([k,v])=>k+':'+v).join(';')+';min-height:100vh;background:var(--bg);color:var(--fg);font-size:13px;';
+
+    // tabs
+    const defs=[['search','Search',true],['grid','Grid',false],['detail','Detail',false],['builder','Builder',false],['timeline','Timeline',true],['watchlist','Watchlist',true],['methodology','Methodology',true]];
+    const tabs=defs.map(([k,label,dis])=>{
+      const active=s.screen===k;
+      return {label, disabled:dis, onClick: dis?null:this.go(k),
+        style:'height:100%; padding:0 13px; border:none; background:transparent; cursor:'+(dis?'not-allowed':'pointer')+
+          '; font-size:12px; font-weight:'+(active?'600':'500')+'; letter-spacing:0.3px; color:'+(dis?'var(--fg3)':active?'var(--fg)':'var(--fg2)')+
+          '; border-bottom:2px solid '+(active?'var(--accent)':'transparent')+'; opacity:'+(dis?'0.5':'1')+';'};
+    });
+
+    // ---------- GRID ----------
+    const q=s.query.trim().toLowerCase();
+    let rows=this.DATA.filter(r=> !q || r.call.toLowerCase().includes(q) || r.fmt.includes(q) || (r.status.toLowerCase().includes(q)));
+    const sk=s.sortKey, dir=s.sortDir;
+    const val=(r)=>{ if(sk==='call') return r.call; if(sk==='avail') return r.avail==='now'?0:(r.avail==='—'?9999:1); const v=r[sk]; return v==null?-Infinity:v; };
+    rows=[...rows].sort((a,b)=>{ const x=val(a),y=val(b); if(x<y)return -1*dir; if(x>y)return 1*dir; return 0; });
+
+    const cols=[
+      ['status','Status','left'],['call','Call','left'],['fmt','Fmt','left'],['rgn','Region','left'],
+      ['cls','Cls','left'],['avail','Avail','left'],['comp','Comp','right'],['morse','CW','right'],['des','Des','right'],['p','P(win)','left']
+    ];
+    const columns=cols.map(([k,label,al])=>({label, onSort:this.toggleSort(k==='status'?'status':k),
+      arrow: sk===k?(dir<0?'▼':'▲'):'',
+      style:'text-align:'+al+'; padding:'+cellPad+'; color:var(--fg3); font-weight:600; font-size:10px; letter-spacing:0.6px; text-transform:uppercase; border-bottom:1px solid var(--line2); cursor:pointer; user-select:none; white-space:nowrap;'}));
+
+    const rowVals=rows.map(r=>{
+      const st=this.STATUS[r.status];
+      const expanded=s.expandedRow===r.call;
+      const sel=!!s.selected[r.call];
+      const sim=r.exact===false;
+      const inPref=s.pref.includes(r.call);
+      const canApply=this.applyable(r);
+      return {
+        call:r.call, fmt:r.fmt, rgnLabel:r.rgnLabel, cls:r.cls, morse:r.morse+'', des:r.des+'',
+        availLabel: r.avail==='now'?'Open now':r.avail, compLabel: r.comp>0? r.comp+'' : '—',
+        st, chipStyle:this.chipStyle(st,'sm'),
+        selected:sel, expanded,
+        hasProb:r.p!=null, noProb:r.p==null, noProbLabel: st.dim?'n/a':'—',
+        pPct: r.p!=null?(r.p*100):0, pLabel:this.fmtPct(r.p,sim), meterBg:this.meterBg(r), pColor:this.pColor(r.p),
+        exactTag: r.p==null?'' : (sim?'SIM':'EXACT'), exactBadgeStyle:this.exactBadge(sim),
+        radialBg:this.radialBg(r.p),
+        ciLeft:r.plo!=null?(r.plo*100):0, ciWidth:r.plo!=null?((r.phi-r.plo)*100):0,
+        ciLoLabel:r.plo!=null?(r.plo*100).toFixed(0)+'%':'', ciHiLabel:r.phi!=null?(r.phi*100).toFixed(0)+'%':'',
+        methodLabel: sim?'Sim':'Exact',
+        why: this.detailWhyShort(r),
+        caret: expanded?'▾':'▸',
+        rowStyle:'border-bottom:1px solid var(--line); cursor:pointer; background:'+(sel?'var(--sel)':expanded?'var(--bg2)':'transparent')+'; opacity:'+(st.dim?'0.72':'1')+';',
+        onToggle:this.toggleRow(r.call), noop:()=>{}, onExpand:this.expandRow(r.call), onOpen:this.openDetail(r.call),
+        onPush: inPref? (e)=>{if(e)e.stopPropagation();} : this.pushToPref(r.call),
+        pushLabel: !canApply? 'Not eligible' : inPref? '✓ In list' : '+ Add to preference list',
+        pushStyle: 'font-size:12px; font-weight:600; padding:8px 14px; border-radius:6px; cursor:'+((!canApply||inPref)?'default':'pointer')+'; white-space:nowrap; border:1px solid '+((!canApply)?'var(--line2)':'var(--accent)')+'; background:'+(inPref?'color-mix(in srgb, var(--s-avail) 16%, transparent)':(!canApply)?'transparent':'var(--accent)')+'; color:'+(inPref?'var(--s-avail)':(!canApply)?'var(--fg3)':'#fff')+';'
+      };
+    });
+
+    // shape-of-results
+    const counts={};
+    rows.forEach(r=> counts[r.status]=(counts[r.status]||0)+1);
+    const order=['NEVER_ISSUED','AVAILABLE','AVAILABLE_CONTESTED','PENDING','UPCOMING','ACTIVE','EXPIRED_WAITING','CANCELED_WAITING','ANOMALY','RESERVED','REGION_LOCKED','CLASS_LOCKED'];
+    const total=rows.length||1;
+    const shapeBar=order.filter(k=>counts[k]).map(k=>({title:this.STATUS[k].label+': '+counts[k], style:'width:'+(counts[k]/total*100)+'%; background:'+this.STATUS[k].color+';'}));
+    const legendKeys=['NEVER_ISSUED','AVAILABLE','AVAILABLE_CONTESTED','PENDING','ACTIVE'];
+    const shapeLegend=legendKeys.filter(k=>counts[k]).map(k=>({label:this.STATUS[k].label, count:counts[k], color:this.STATUS[k].color}));
+
+    const savedSearches=[
+      {label:'★ 2x1 · never issued', onClick:()=>this.setState({query:''})},
+      {label:'region 6 · P>60%', onClick:()=>this.setState({query:'6'})},
+      {label:'contested now', onClick:()=>this.setState({query:'contested'})}
+    ];
+
+    const selCount=Object.keys(s.selected).length;
+    const selPreview=Object.keys(s.selected).slice(0,8).join('  ');
+
+    // ---------- BUILDER ----------
+    const m=this.metricsFor(s.pref);
+    const maxMarg = Math.max(...m.slots.map(x=>x.pSlot),0.0001);
+    const slots=m.slots.map((x,i)=>{
+      const r=x.r; const st=this.STATUS[r.status];
+      return {
+        setRef:(el)=>{ if(el)this.slotEls[r.call]=el; else delete this.slotEls[r.call]; },
+        rank:(i+1)+'', call:r.call, des:r.des+'',
+        st, chipStyle:this.chipStyle(st,'sm'),
+        pPct:(x.p*100), pLabel:(x.p*100).toFixed(0)+'%', pColor:this.pColor(x.p),
+        marginal:'+'+(x.pSlot*100).toFixed(1)+'%',
+        onDragStart:this.onDragStart(r.call), onDragOver:this.onDragOver(r.call), onDragEnd:this.onDragEnd(),
+        onRemove:this.removeSlot(r.call),
+        style:'display:flex; align-items:center; gap:12px; padding:10px 12px; margin-bottom:6px; background:var(--bg2); border:1px solid '+(s.dragId===r.call?'var(--accent)':'var(--line)')+'; border-radius:8px; cursor:grab; opacity:'+(s.dragId===r.call?'0.5':'1')+'; will-change:transform;'
+      };
+    });
+    const poolItems=this.DATA.filter(r=>this.applyable(r)&&!s.pref.includes(r.call)).slice(0,10).map(r=>{
+      const st=this.STATUS[r.status]; const full=s.pref.length>=25;
+      return {call:r.call, des:r.des+'', st, chipStyle:this.chipStyle(st,'sm')+'padding:1px 5px;',
+        disabled:full, onAdd:this.pushToPref(r.call),
+        style:'display:inline-flex; align-items:center; gap:7px; padding:6px 10px; background:var(--bg); border:1px solid var(--line2); border-radius:7px; cursor:'+(full?'default':'pointer')+'; font-size:12px; color:var(--fg2); opacity:'+(full?'0.5':'1')+';'};
+    });
+    const metrics=[
+      {label:'P(get #1 pick)', sub:'top-ranked slot', value:(m.pFirst*100).toFixed(1)+'%', color:this.pColor(m.pFirst)},
+      {label:'P(get top-3)', sub:'any of first three', value:(m.pTop3*100).toFixed(1)+'%', color:this.pColor(m.pTop3)},
+      {label:'P(get anything)', sub:'at least one grant', value:(m.pAny*100).toFixed(1)+'%', color:this.pColor(m.pAny)},
+      {label:'Expected value', sub:'desirability-weighted', value:m.ev.toFixed(0), color:'var(--fg)'}
+    ];
+    let cum=1; const cumBars=m.slots.map((x,i)=>{ cum*=(1-x.p); const any=1-cum; return {h:(any*100), color: i<3?'var(--accent)':'color-mix(in srgb, var(--accent) 45%, transparent)', title:'through slot '+(i+1)+': '+(any*100).toFixed(1)+'%'}; });
+
+    const d=s.screen==='detail'? this.detailData() : {};
+
+    return {
+      rootStyle, cellPad, tableFont: dense?'12px':'13px', callFont: dense?'13px':'14px',
+      themeGlyph: s.theme==='dark'?'☀':'☾', toggleTheme:()=>this.setState(x=>({theme:x.theme==='dark'?'light':'dark'})),
+      setDense:()=>this.setState({density:'dense'}), setComfy:()=>this.setState({density:'comfortable'}),
+      denseBtnStyle:this.segBtn(dense), comfyBtnStyle:this.segBtn(!dense),
+      freshness:'2m ago',
+      tabs,
+      isGrid:s.screen==='grid', isDetail:s.screen==='detail', isBuilder:s.screen==='builder',
+      loading:s.loading, notLoading:!s.loading,
+      skeleton:[...Array(14)].map((_,i)=>({w:(55+((i*13)%40))+'%'})),
+      query:s.query, onQuery:(e)=>this.setState({query:e.target.value}),
+      savedSearches, resultCount:rows.length+'', shapeBar, shapeLegend,
+      columns, rows:rowVals,
+      hasSelection:selCount>0, selCount:selCount+'', selPreview, onClearSel:()=>this.setState({selected:{}}), onAddSel:()=>this.addSelected(),
+      backToGrid:this.go('grid'),
+      d,
+      // builder
+      slots, pool:poolItems, metrics, cumBars,
+      slotCount:s.pref.length+'',
+      onOptimize:()=>this.optimize(),
+      showDiff:!!s.diff, diff: s.diff? {
+        evBefore:s.diff.evBefore, evAfter:s.diff.evAfter, evDelta:(s.diff.evUp?'▲':'▼'), evStyle:'color:'+(s.diff.evUp?'var(--s-avail)':'var(--s-canceled)')+';font-size:11px;',
+        t3Before:s.diff.t3Before, t3After:s.diff.t3After, t3Delta:(s.diff.t3Up?'▲':'▼'), t3Style:'color:'+(s.diff.t3Up?'var(--s-avail)':'var(--s-canceled)')+';font-size:11px;'
+      }:{},
+      builderNote:'Model: FCC §1.933 random-order processing. You win a slot only if you fail every higher-ranked pick and beat all same-batch competitors for it. Ordering by desirability maximizes expected value; P(anything) is order-independent — so front-load what you want most.'
+    };
+  }
+  segBtn(active){ return 'padding:6px 11px; white-space:nowrap; border:none; background:'+(active?'var(--accent)':'var(--bg2)')+'; color:'+(active?'#fff':'var(--fg2)')+'; font-size:11px; font-weight:'+(active?'600':'500')+'; cursor:pointer;'; }
+  detailWhyShort(r){
+    if(r.status==='PENDING') return r.comp+' applicants share this batch; win = being ordered ahead of all of them. '+(r.exact===false?'Cluster too large for exact enumeration — simulated.':'Computed by exact enumeration.');
+    if(r.status==='NEVER_ISSUED') return 'Never assigned in full ULS history — no incumbent, no competition. Grantable immediately.';
+    if(r.status==='AVAILABLE_CONTESTED') return r.comp+' applicants already queued. File on an earlier workday to dodge their batch.';
+    if(r.status==='AVAILABLE') return 'Open now, no pending applications. Filing places you first.';
+    if(this.STATUS[r.status].dim) return 'Disqualified for you — see detail for the exact eligibility rule.';
+    return 'See full detail for the rule trace behind this status.';
+  }
+}
+</script>
+</body>
+</html>
